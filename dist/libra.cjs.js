@@ -8,6 +8,7 @@ var path = _interopDefault(require('path'));
 var grpc = _interopDefault(require('grpc'));
 var protoLoader = _interopDefault(require('@grpc/proto-loader'));
 var transaction_pb = require('./pb/transaction_pb');
+var BigNumber = _interopDefault(require('bignumber.js'));
 
 const PROTO_PATH = path.resolve(__dirname, './pb/admission_control.proto');
 
@@ -46,53 +47,62 @@ class Client {
   }
 }
 
-function bufferToHex(buffer) {
-  return Array
-    .from(new Uint8Array(buffer))
-    .reverse()
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-}
+function decodeRawTx(rawTxnBytes) {
 
-function deserializeRawTxnBytes(rawTxnBytes) {
   const rawTxn = transaction_pb.RawTransaction.deserializeBinary(rawTxnBytes);
-  const rawTxnObj = rawTxn.toObject();
-  rawTxnObj.senderAccount = Buffer.from(rawTxn.getSenderAccount(), 'base64').toString('hex');
-  if (rawTxn.hasProgram() && rawTxn.getProgram().getArgumentsList()) {
-    rawTxnObj.program.argumentsList = rawTxn.getProgram().getArgumentsList().map(argument => ({
-      type: argument.getType(),
-      data: argument.getType() === 0
-        ? parseInt(bufferToHex(argument.getData()), 16)
-        : argument.getType() === 1
-          ? Buffer.from(argument.getData(), 'base64').toString('hex')
-          : argument.getData(),
-    }));
+  const rawProgram = rawTxn.getProgram();
+
+  if (typeof rawProgram !== 'undefined') {
+    const program = {
+      arguments: rawProgram.getArgumentsList().map(argument => ({
+        type: argument.getType(),
+        value: argument.getData_asU8(),
+      })),
+      code: rawProgram.getCode_asU8(),
+      modules: rawProgram.getModulesList_asU8(),
+    };
+
+    let gas_price = new BigNumber(rawTxn.getGasUnitPrice()).c[0];
+    let gas_max = new BigNumber(rawTxn.getMaxGasAmount()).c[0];
+
+    let to = Buffer.from(program.arguments[0].value, 'base64').toString('hex');
+
+    let value = parseInt(bufferToHex(program.arguments[1].value), 16);
+
+    function bufferToHex (buffer) {
+      return Array
+        .from(new Uint8Array(buffer))
+        .reverse()
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('')
+    }
+
+    // program.arguments.address = address;
+    // program.arguments.value = value;
+
+    let time = BigNumber(rawTxn.getExpirationTime()).c[0];
+    let from = Buffer.from(rawTxn.getSenderAccount_asU8(), 'base64').toString('hex');
+    let seq_nr = new BigNumber(rawTxn.getSequenceNumber()).c[0];
+
+    return( { from, to, value, time, seq_nr, gas_price, gas_max } );
+
   }
-  return rawTxnObj;
+
+  else {
+    let from,
+    to,
+    value,
+    time,
+    seq_nr,
+    gas_price,
+    gas_max = 0;
+    return( { from, to, value, time, seq_nr, gas_price, gas_max } );
+  }
 }
 
-function decodeGetTransactionsResult(result) {
-  result.txn_list_with_proof.transactions = result.txn_list_with_proof.transactions.map(tx => Object.assign(tx, {
-    raw_txn_bytes: deserializeRawTxnBytes(tx.raw_txn_bytes),
-    sender_public_key: Buffer.from(tx.sender_public_key, 'base64').toString('hex'),
-    sender_signature: Buffer.from(tx.sender_signature, 'base64').toString('hex'),
-  }));
-  return result;
-}
-
-function decodeResult(command, result) {
-  switch (command) {
-    case 'get_transactions':
-      return decodeGetTransactionsResult(result);
-    default:
-      return result;
-  }
-}
 
 var utils = {
-  decodeResult,
-  decodeGetTransactionsResult,
-  deserializeRawTxnBytes,
+  decodeRawTx
 };
 
 var version = "0.0.4";
