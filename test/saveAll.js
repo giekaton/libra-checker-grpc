@@ -40,7 +40,7 @@ const run = async () => {
     for (const tx of result.txn_list_with_proof.transactions) {
     
       // decode tx
-      let decoded = libra.utils.decodeRawTx(tx.raw_txn_bytes);
+      let decoded = libra.utils.deserializeRawTxnBytes(tx.raw_txn_bytes);
       
       // manually create tx's id
       decoded._id = tx_id + i;
