@@ -47,6 +47,10 @@ class Client {
   }
 }
 
+function second(elem) {
+  return(elem);
+}
+
 function decodeRawTx(rawTxnBytes) {
 
   const rawTxn = transaction_pb.RawTransaction.deserializeBinary(rawTxnBytes);
@@ -86,6 +90,8 @@ function decodeRawTx(rawTxnBytes) {
 
     return( { from, to, value, time, seq_nr, gas_price, gas_max } );
 
+    // return (rawTxn);
+
   }
 
   else {
@@ -102,7 +108,8 @@ function decodeRawTx(rawTxnBytes) {
 
 
 var utils = {
-  decodeRawTx
+  decodeRawTx,
+  second
 };
 
 var version = "0.0.4";

@@ -1,11 +1,6 @@
 import { RawTransaction } from './pb/transaction_pb';
 import BigNumber from 'bignumber.js';
 
-
-function second(elem) {
-  return(elem);
-}
-
 function decodeRawTx(rawTxnBytes) {
 
   const rawTxn = RawTransaction.deserializeBinary(rawTxnBytes);
@@ -23,6 +18,11 @@ function decodeRawTx(rawTxnBytes) {
 
     let gas_price = new BigNumber(rawTxn.getGasUnitPrice()).c[0];
     let gas_max = new BigNumber(rawTxn.getMaxGasAmount()).c[0];
+
+    // getSignedTransactionHash_asU8
+    // getStateRootHash_asU8
+    // getEventRootHash_asU8
+    // getGasUsed
 
     let to = Buffer.from(program.arguments[0].value, 'base64').toString('hex');
 
@@ -63,6 +63,5 @@ function decodeRawTx(rawTxnBytes) {
 
 
 export default {
-  decodeRawTx,
-  second
+  decodeRawTx
 }
