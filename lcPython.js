@@ -44,6 +44,8 @@ function run() {
   function getData() {
     return new Promise(resolve => {
 
+      // @todo: get by 100 txn
+
       // nextTxnId = 1259;
       let start_version = nextTxnId;
       let limit = 1;
@@ -94,9 +96,11 @@ function run() {
       const tx = string.UserTransaction;
 
       console.log(tx, nextTxnId)
+      
+      let status = 'success';
 
+      // Genesis (0th) transaction
       if (nextTxnId == 0) {
-        // genesis txn
         var sender = tx.raw_txn.sender;
         var sequence_number = tx.raw_txn.sequence_number;
         var receiver = 0;
@@ -107,6 +111,8 @@ function run() {
         var type = 'genesis'
         console.log(sender, sequence_number, receiver, value, max_gas_amount, gas_unit_price, expiration_time, public_key, signature, type );
         // return;
+
+        finishRun();
       }
       else {
         var type = tx.type;
@@ -129,51 +135,138 @@ function run() {
         console.log(sender, sequence_number, receiver, value, max_gas_amount, gas_unit_price, expiration_time, public_key, signature, type );
         // return;
       }
-      
-      let status = 'success';
 
+      // Minting transaction
       if (type == 'Mint Libra Coins') {
         if (value > 1000000000000000) {
           status = 'failed';
+          finishRun();
+        }
+        else {
+
+          // 1. update minter's balance
+          let text = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
+          let valueMinter = value * -1;
+          let values = [sender, valueMinter];
+
+          clientPg.query(text, values)
+          .then(res => {
+            console.log(res.rows[0])
+          })
+          .catch(e => console.error(e.stack))
+
+          // 2. update receiver's balance
+          let text2 = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
+          let values2 = [receiver, value];
+
+          clientPg.query(text2, values2)
+          .then(res => {
+            console.log(res.rows[0])
+          })
+          .catch(e => console.error(e.stack))
+
+          finishRun();
+
         }
       }
 
-      // ADD TO POSTGRESQL
+      // Peer-to-Peer transaction (if not genesis)
+      else if (nextTxnId != 0) {
 
-      const text = 'INSERT INTO transactions(id, sender, seq, value, receiver, gas_max, gas_price, time, signature, public_key, type, status) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *'
-
-      let values = [nextTxnId, sender, sequence_number, value, receiver, max_gas_amount, gas_unit_price, expiration_time, signature, public_key, type, status]
-
-      // callback
-      let result = clientPg.query(text, values, (err, res) => {
-        if (err) {
-          console.log(err.stack)
-
-          values = [nextTxnId, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-          
-          clientPg.query(text, values, (err, res) => {
-            if (err) {
-              console.log('2nd error');
-            }
-            else {
-              console.log('txn inserted');
-              setTimeout(function () {
-                console.log('2 sec pause before trying again');
-                run();
-              }, 2000);
-            }
-          });
-
-        } else {
-          console.log('txn inserted');
-          setTimeout(function () {
-            console.log('0.2 sec pause before trying again');
-            run();
-          }, 200);
+        let queryBalanceSender = {
+          name: 'get-balance-sender',
+          text: 'SELECT * FROM balances WHERE address = $1',
+          values: [sender],
         }
 
-      })
+        clientPg.query(queryBalanceSender)
+        .then(res => {
+          let currentBalanceSender = res.rows[0].balance;
 
+          if (value > currentBalanceSender) {
+            status = 'failed';
+            finishRun();
+          }
+          else {
+            let newBalanceSender = currentBalanceSender - value;
+            // console.log(newBalanceSender);
+  
+
+            // 1. update sender's balance
+
+            let updateBalanceSender = {
+              name: 'update-balance-sender',
+              text: 'UPDATE balances SET balance = $1 WHERE address = $2',
+              values: [newBalanceSender, sender],
+            }
+
+            clientPg.query(updateBalanceSender)
+            .then(res => {
+              // console.log(res.rows[0]);
+              console.log('sender balance updated')
+            })
+            .catch(e => console.error(e.stack))
+
+
+            // 2. insert/update receiver's balance
+
+            let text2 = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
+            let values2 = [receiver, value];
+  
+            clientPg.query(text2, values2)
+            .then(res => {
+              console.log(res.rows[0])
+            })
+            .catch(e => console.error(e.stack))
+            finishRun();
+
+          }
+        })
+        .catch(e => console.error(e.stack))
+
+      }
+
+      // ADD TO POSTGRESQL
+      function finishRun() {
+
+
+        const text = 'INSERT INTO transactions(id, sender, seq, value, receiver, gas_max, gas_price, time, signature, public_key, type, status) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *'
+
+        let values = [nextTxnId, sender, sequence_number, value, receiver, max_gas_amount, gas_unit_price, expiration_time, signature, public_key, type, status]
+  
+        // callback
+        let result = clientPg.query(text, values, (err, res) => {
+          if (err) {
+            console.log(err.stack)
+  
+            values = [nextTxnId, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            
+            clientPg.query(text, values, (err, res) => {
+              if (err) {
+                console.log('2nd error');
+              }
+              else {
+                console.log('txn inserted');
+                setTimeout(function () {
+                  console.log('2 sec pause before trying again');
+                  run();
+                }, 2000);
+              }
+            });
+  
+          } else {
+            console.log('txn inserted');
+            setTimeout(function () {
+              console.log('0.2 sec pause before trying again');
+              run();
+            }, 200);
+          }
+  
+        })
+  
+
+      }
+      
     });
   }
 }

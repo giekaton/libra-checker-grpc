@@ -7,7 +7,7 @@
     "futoin-hkdf": "^1.2.1",
     "google-protobuf": "^3.10.0",
     "grpc": "^1.24.2",
-    "grpc-web": "^1.0.6",
+    "grpc-web": "^1.0.7",
     "int64-buffer": "^0.99.1007",
     "js-sha3": "^0.8.0",
     "pg": "^7.12.1",
