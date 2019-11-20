@@ -224,6 +224,58 @@ class LibraClient {
     }
 
 
+    
+    // Get Transaction(-s) by range
+    async getTxnByRangePython100(start_version, limit, fetchEvents = true) {
+      const parsedStartVersion = new bignumber_js_1.default(start_version);
+      const parsedLimit = new bignumber_js_1.default(limit);
+      const request = new get_with_proof_pb_1.UpdateToLatestLedgerRequest();
+      const requestItem = new get_with_proof_pb_1.RequestItem();
+      const getTransactionRequest = new get_with_proof_pb_1.GetTransactionsRequest();
+
+      getTransactionRequest.setStartVersion(parsedStartVersion.toNumber());
+      getTransactionRequest.setLimit(parsedLimit.toNumber());
+      getTransactionRequest.setFetchEvents(fetchEvents);
+      
+      requestItem.setGetTransactionsRequest(getTransactionRequest);
+      request.addRequestedItems(requestItem);
+      
+      const response = await this.admissionControlProxy.updateToLatestLedger(this.acClient, request);
+      const responseItems = response.getResponseItemsList();
+      if (responseItems.length === 0) {
+          return null;
+      }
+
+      const r = responseItems[0].getGetTransactionsResponse();
+      const txnListWithProof = r.getTxnListWithProof();
+      const txnList = txnListWithProof.getTransactionsList();
+
+      if (typeof(txnList[0]) == 'undefined') {
+        return "wait";
+      }
+
+      let txnArray = [];
+
+      txnList.forEach (txn => {
+        let singleTxn = txn.getTransaction();
+        let finalHex = BufferUtil_1.BufferUtil.toBase64(singleTxn);
+        txnArray.push(finalHex);
+
+        if (txnList.length == txnArray.length) {
+          returnFinal(txnArray);
+        }
+      })
+      
+      return (txnArray);
+
+      function returnFinal(txnArray) {
+        // console.log(txnArray);
+        return txnArray;
+      }
+
+    }
+
+
     /**
      * Transfer coins from sender to receipient.
      * numCoins should be in libraCoins based unit.

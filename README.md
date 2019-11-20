@@ -36,6 +36,6 @@ Currently, Python LCS from Canoser is being used as a Node.js child process. It 
 
 @todo:
 - deserialize transaction with JavaScript LCS
-- deserialize multiple transactions at once
-- fix 0th txn bug
-- failed txn when not enough LBR
+- ~~deserialize multiple transactions at once~~
+- fix genesis txn bug
+- ~~failed txn when not enough LBR~~
