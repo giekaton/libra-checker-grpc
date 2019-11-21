@@ -36,6 +36,7 @@ function run() {
       console.log('increase')
       nextTxnId = Number(res.rows[0].id) + 1;
     }
+    // nextTxnId = 5208; // dev
     console.log('nextTxnId:', nextTxnId);
     
     // Start the cycle
@@ -60,9 +61,8 @@ function run() {
   // Fetch transactions from the Libra blockchain
   async function fetchTxnData(nextTxnId) {
 
-    // nextTxnId = 1260;
     let start_version = nextTxnId;
-    let limit = 10;
+    let limit = 20;
 
     let txns = client.getTxnByRangePython100(start_version, limit, true);
 
@@ -151,15 +151,21 @@ function run() {
 
 
   async function updateDB(txnsObjDes) {
+    console.log('STARTING updateDB');
     // let txnsArray = txnsObjDes;
     // console.log(txnsObjDes);
+    // return;
 
     txnsObjDesLength = Object.keys(txnsObjDes).length;
+    txnsPrepForDB = {};
 
     console.log('STARTING updateDB LOOP');
 
+
     i = 1;
     for (const id in txnsObjDes) {
+      console.log('Updating Txn:', id);
+
       let txnId = id;
       let tx = txnsObjDes[id];
       let txnPrep = {}
@@ -224,25 +230,27 @@ function run() {
           else {
 
             // 1. update minter's balance
-            let text = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
-            let valueMinter = txnPrep.value * -1;
-            let values = [txnPrep.sender, valueMinter];
+            try {
+              let text = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
+              let valueMinter = txnPrep.value * -1;
+              let values = [txnPrep.sender, valueMinter];
+              const res = await clientPg.query(text, values);
 
-            clientPg.query(text, values)
-            .then(res => {
               console.log(res.rows[0])
-            })
-            .catch(e => console.error(e.stack))
-
+            } catch (err) {
+              console.log(err.stack)
+            }
+            
             // 2. update receiver's balance
-            let text2 = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
-            let values2 = [txnPrep.receiver, txnPrep.value];
+            try {
+              let text2 = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
+              let values2 = [txnPrep.receiver, txnPrep.value];
+              const res = await clientPg.query(text2, values2);
 
-            clientPg.query(text2, values2)
-            .then(res => {
               console.log(res.rows[0])
-            })
-            .catch(e => console.error(e.stack))
+            } catch (err) {
+              console.log(err.stack)
+            }
 
             finishRunGetReady(txnId, txnPrep);
 
@@ -258,8 +266,16 @@ function run() {
             values: [txnPrep.sender],
           }
 
-          clientPg.query(queryBalanceSender)
-          .then(res => {
+          try {
+            const res = await clientPg.query(queryBalanceSender);
+
+          //   console.log(res.rows[0])
+          // } catch (err) {
+          //   console.log(err.stack)
+          // }
+
+          // clientPg.query(queryBalanceSender)
+          // .then(res => {
             let currentBalanceSender = res.rows[0].balance;
 
             if (txnPrep.value > currentBalanceSender) {
@@ -277,38 +293,53 @@ function run() {
                 values: [newBalanceSender, txnPrep.sender],
               }
 
-              clientPg.query(updateBalanceSender)
-              .then(res => {
+              try {
+                const res = await clientPg.query(updateBalanceSender)
                 // console.log(res.rows[0]);
                 console.log('sender balance updated')
-              })
-              .catch(e => console.error(e.stack))
+              } catch (err) {
+                console.log(err.stack)
+              }
+
 
               // 2. insert/update receiver's balance
               let text2 = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
               let values2 = [txnPrep.receiver, txnPrep.value];
 
-              clientPg.query(text2, values2)
-              .then(res => {
+              try {
+                const res = await clientPg.query(text2, values2)
+
                 console.log(res.rows[0])
-              })
-              .catch(e => console.error(e.stack))
-              finishRunGetReady(txnId, txnPrep);
+                finishRunGetReady(txnId, txnPrep);
+              } catch (err) {
+                console.log(err.stack)
+              }
 
             }
-          })
-          .catch(e => console.error(e.stack))
+          // })
+          }
+          // .catch(e => console.error(e.stack))
+          catch (err) {
+            console.log('EEEEEEEEEEEE', err);
+          }
 
         }
 
       }
 
-      function finishRunGetReady(txnId, txnPrep) {
-        finishRun(txnId, txnPrep);
+      async function finishRunGetReady(txnId, txnPrep) {
+
+        try {
+          finishRun(txnId, txnPrep);
+        }
+        catch(error) {
+          console.log(error.message);
+        } 
+       
+        // finishRun(txnId, txnPrep);
       }
 
     }
-
 
   }
 
@@ -323,43 +354,42 @@ function run() {
 
     let values = [txnId, tx.sender, tx.sequence_number, tx.value, tx.receiver, tx.max_gas_amount, tx.gas_unit_price, tx.expiration_time, tx.signature, tx.public_key, tx.type, tx.status]
 
-    // callback
-    let result = clientPg.query(text, values, (err, res) => {
-      if (err) {
-        console.log(err.stack)
+    try {
+      const res = await clientPg.query(text, values);
 
-        values = [txnId, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        
-        clientPg.query(text, values, (err, res) => {
-          if (err) {
-            console.log('2nd error');
-          }
-          else {
-            console.log('txn '+txnId+' inserted');
+      console.log('txn '+txnId+' inserted');
+      // console.log(txnId);
 
-            if (tx.last) {
-              setTimeout(function () {
-                console.log('2 sec pause before trying again');
-                run();
-              }, 2000);
-            }
+      if (tx.last) {
+        console.log('0.5 sec pause before trying again');
+        setTimeout(function () {
+          run();
+        }, 500);
+      }
+    }
+    catch (err) {
 
-          }
-        });
+      console.log(err.stack)
 
-      } else {
+      values = [txnId, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+      
+      try {
+        const res = await clientPg.query(text, values);
+
         console.log('txn '+txnId+' inserted');
-        // console.log(txnId);
 
         if (tx.last) {
-          console.log('2 sec pause before trying again');
           setTimeout(function () {
+            console.log('2 sec pause before trying again');
             run();
           }, 2000);
         }
       }
+      catch (err) {
+        console.log('2nd error:', err);
+      }
+    }
 
-    })
 
   }
 
