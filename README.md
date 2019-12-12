@@ -15,11 +15,12 @@ Node.js gRPC client for [Libra Checker](https://librachecker.com) to fetch trans
 4. Install dependencies with `parcel index.html` command, ignore errors if any. Plus, you may need to run 'npm install'.
 
 <br/>
+Done! You can now query transactions by running:
+
+`node lcPython2.js`
 <br/>
-Done! You can now query transactions by running: `node lcPython2.js`
 <br/>
-<br/>
-<br/>
+
 **Notes**
 
 The first release of `libra-checker-grpc` was based on [bonustrack/libra-grpc](https://github.com/bonustrack/libra-grpc). The current release is based on [/kulapio/libra-core](https://github.com/kulapio/libra-core), which is based on [/perfectmak/libra-core](https://github.com/perfectmak/libra-core).
