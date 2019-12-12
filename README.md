@@ -12,15 +12,11 @@ Node.js gRPC client for [Libra Checker](https://librachecker.com) to fetch trans
 
 3. Edit and rename the example auth file to `lcAuth.js`.
 
-4. Install dependencies with `parcel index.html` command, ignore errors if any.
+4. Install dependencies with `parcel index.html` command, ignore errors if any. Plus, you may need to run 'npm install'.
 
 <br/>
 <br/>
-Done!
-
-You can now query transactions by running:
-
-`node lcPython2.js` (Python LCS)
+Done! You can now query transactions by running: `node lcPython2.js`
 <br/>
 <br/>
 <br/>
