@@ -241,6 +241,11 @@ class LibraClient {
       request.addRequestedItems(requestItem);
       
       const response = await this.admissionControlProxy.updateToLatestLedger(this.acClient, request);
+      
+      if (response == "1 CANCELLED: Received http2 header with status: 503") {
+        return ('error');
+      }
+      
       const responseItems = response.getResponseItemsList();
       if (responseItems.length === 0) {
           return null;
@@ -249,6 +254,8 @@ class LibraClient {
       const r = responseItems[0].getGetTransactionsResponse();
       const txnListWithProof = r.getTxnListWithProof();
       const txnList = txnListWithProof.getTransactionsList();
+
+      return txnList;
 
       if (typeof(txnList[0]) == 'undefined') {
         return "wait";

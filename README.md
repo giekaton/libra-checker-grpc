@@ -6,25 +6,21 @@ Node.js gRPC client for [Libra Checker](https://librachecker.com) to fetch trans
 <br/>
 **Quick Start**
 
-First install Python and PIP.
+1. Install [/yuan-xy/libra-client](https://github.com/yuan-xy/libra-client).
 
-With PIP install [/yuan-xy/canoser-python](https://github.com/yuan-xy/canoser-python) and [/yuan-xy/libra-client](https://github.com/yuan-xy/libra-client).
+2. Create PostgreSQL database tables (see png files for the structure).
 
-Edit and rename the example auth file to `lcAuth.js`.
+3. Edit and rename the example auth file to `lcAuth.js`.
 
-Install dependencies with the following command, ignore errors if any.
+4. Install dependencies with `parcel index.html` command, ignore errors if any.
 
-`parcel index.html`
 <br/>
 <br/>
 Done!
 
 You can now query transactions by running:
 
-`node lcPython.js` (Python LCS)
-<br/>
-<br/>
-`node lc.js` (JavaScript LCS)
+`node lcPython2.js` (Python LCS)
 <br/>
 <br/>
 <br/>
@@ -32,12 +28,12 @@ You can now query transactions by running:
 
 The first release of `libra-checker-grpc` was based on [bonustrack/libra-grpc](https://github.com/bonustrack/libra-grpc). The current release is based on [/kulapio/libra-core](https://github.com/kulapio/libra-core), which is based on [/perfectmak/libra-core](https://github.com/perfectmak/libra-core).
 
-Thanks to Kulap and Apemon for the [JavaScript LCS](https://github.com/kulapio/libra-core/releases/tag/v2.0.2). Not yet implemented in this client, since structs have changed and need update. Attempts to use Apemon's JavaScript LCS to deserialize a transaction (querying by range) are in `lc.js`.
+Thanks to Kulap and Apemon for the [JavaScript LCS](https://github.com/kulapio/libra-core/releases/tag/v2.0.2). Not yet implemented in this client, since structs have changed and need update. Attempts to use Apemon's JavaScript LCS to deserialize a transaction (querying by range) are in `lc.js`, run ir with `node lc.js` command.
 
 Currently, Python LCS from Canoser is being used as a Node.js child process. It works great. Thanks to [Yuan Xy](https://github.com/yuan-xy/) for his open source contributions and help.
 
 @todo:
 - deserialize transaction with JavaScript LCS
 - ~~deserialize multiple transactions at once~~
-- fix genesis txn bug
+- ~~fix genesis txn bug~~
 - ~~failed txn when not enough LBR~~
