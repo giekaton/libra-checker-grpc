@@ -2,10 +2,7 @@
 
 gRPC client for [Libra Checker](https://librachecker.com) to fetch transactions from the blockchain and deserialize them with Libra Canonical Serialization (LCS) library written in Python. Deserialized transactions are then stored in PostgreSQL database.
 
-<br/>
-
 It runs as a background pm2 process that spawns the Python gRPC client.
-
 <br/>
 <br/>
 
@@ -20,15 +17,11 @@ It runs as a background pm2 process that spawns the Python gRPC client.
 4. Install dependencies with `npm install`.
 
 <br/>
-<br/>
 
 You can now fetch Libra transactions by running: `node lcPython.js`
 
-<br/>
-
 To run it in the background: `pm2 start lcPython.js`
 
-<br/>
 <br/>
 
 Thanks to [Yuan Xy](https://github.com/yuan-xy/) for his open source contributions and help.
