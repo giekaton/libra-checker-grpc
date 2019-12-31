@@ -1,36 +1,34 @@
 **About**
 
-Node.js gRPC client for [Libra Checker](https://librachecker.com) to fetch transactions from the blockchain and deserialize them using Libra Canonical Serialization library written in Python (running as a Node.js child process). Deserialized transactions are returned back to Node.js and then stored in PostgreSQL database.
+gRPC client for [Libra Checker](https://librachecker.com) to fetch transactions from the blockchain and deserialize them with Libra Canonical Serialization (LCS) library written in Python. Deserialized transactions are then stored in PostgreSQL database.
+
+<br/>
+
+It runs as a background pm2 process that spawns the Python gRPC client.
+
 <br/>
 <br/>
-<br/>
+
 **Quick Start**
 
 1. Install [/yuan-xy/libra-client](https://github.com/yuan-xy/libra-client).
 
 2. Create PostgreSQL database tables (see png files for the structure).
 
-3. Edit and rename the example auth file to `lcAuth.js`.
+3. Edit and rename the example auth files to `lcAuth.js` and `lcAuth.py`.
 
-4. Install dependencies with `parcel index.html` command, ignore errors if any. Plus, you may need to run 'npm install'.
+4. Install dependencies with `npm install`.
 
-<br/>
-Done! You can now query transactions by running:
-
-`node lcPython2.js`
 <br/>
 <br/>
 
-**Notes**
+You can now fetch Libra transactions by running: `node lcPython.js`
 
-The first release of `libra-checker-grpc` was based on [bonustrack/libra-grpc](https://github.com/bonustrack/libra-grpc). The current release is based on [/kulapio/libra-core](https://github.com/kulapio/libra-core), which is based on [/perfectmak/libra-core](https://github.com/perfectmak/libra-core).
+<br/>
 
-Thanks to Kulap and Apemon for the [JavaScript LCS](https://github.com/kulapio/libra-core/releases/tag/v2.0.2). Not yet implemented in this client, since structs have changed and need update. Attempts to use Apemon's JavaScript LCS to deserialize a transaction (querying by range) are in `lc.js`, run ir with `node lc.js` command.
+To run it in the background: `pm2 start lcPython.js`
 
-Currently, Python LCS from Canoser is being used as a Node.js child process. It works great. Thanks to [Yuan Xy](https://github.com/yuan-xy/) for his open source contributions and help.
+<br/>
+<br/>
 
-@todo:
-- deserialize transaction with JavaScript LCS
-- ~~deserialize multiple transactions at once~~
-- ~~fix genesis txn bug~~ (if encountered, manually add the 0-th txn to the db)
-- ~~failed txn when not enough LBR~~
+Thanks to [Yuan Xy](https://github.com/yuan-xy/) for his open source contributions and help.

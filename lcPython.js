@@ -19,380 +19,67 @@ const clientPg = new Client({
 clientPg.connect()
 
 
-// Libra
-lc = require('./index.js');
-
-const client = new lc.LibraClient({ network: 'ac.testnet.libra.org' })
-
-
 function run() {
+  console.log('START')
 
-  nextTxnId = 0;
+  // default
+  let nextTxnId = 0;
 
   // Check the id of the latest txn stored in the local db
   clientPg.query('SELECT * FROM transactions ORDER BY id DESC LIMIT 1')
   .then((res) => {
     if(typeof(res.rows[0]) != 'undefined') {
-      console.log('increase')
+      // console.log('increase')
       nextTxnId = Number(res.rows[0].id) + 1;
     }
-    // nextTxnId = 5208; // dev
-    console.log('nextTxnId:', nextTxnId);
-    
     // Start the cycle
+    // nextTxnId = 68942
+    console.log('Next txn:', nextTxnId)
     asyncRun(nextTxnId);
   })
   .catch(e => console.error(e.stack))
 
-
   async function asyncRun(nextTxnId) {
     try {
-      let txns = await fetchTxnData(nextTxnId);
-      // console.log(txns);
-      
-      pythonLCS(txns, nextTxnId);
+      pythonLCS(nextTxnId);
     }
-    catch(error) {
+    catch (error) {
       console.log(error.message);
     } 
   }
 
-
-  // Fetch transactions from the Libra blockchain
-  async function fetchTxnData(nextTxnId) {
-
-    let start_version = nextTxnId;
-    let limit = 20;
-
-    let txns = client.getTxnByRangePython100(start_version, limit, true);
-
-    return(txns);
-
-  }
-
-
-  async function pythonLCS(txns, nextTxnId) {
+  async function pythonLCS(nextTxnId) {
   
-    let txnsObj = {};
+    // Python setup
+    const myPythonScript = "transaction.py";
 
-    if (txns == 'wait') {
-      console.log('NO NEW TRANSACTIONS')
-      console.log('2 sec pause before trying again');
-      setTimeout(function () {
-        run();
-      }, 2000);
-    }
+    const pgExec = lcAuth.pythonExecutable();
+    const scriptExecution = spawn(pgExec, [myPythonScript]);
+    // console.log(nextTxnId)
 
-    else {
+    console.log("Starting Python LCS...")
 
-      txns.forEach (txn => {
-        // console.log(txn)
-        txnsObj[nextTxnId] = txn;
-        nextTxnId++;
-      })
+    // 1. Passing next txn ID (version)
+    scriptExecution.stdin.write(nextTxnId+"");
+    scriptExecution.stdin.end();
 
-      // console.log(txnsObj);
-      // return;
+    // 2. Output from Python
+    scriptExecution.stdout.on('data', (data) => {
+      // console.log(data);
+      // convert an Uint8Array to a string
+      const string = String.fromCharCode.apply(null, data);
 
-      txnsObjDes = {}
-
-      txnsObjLength = Object.keys(txnsObj).length;
-
-      console.log('STARTING LCS LOOP');
-
-      i = 1;
-      for (const id in txnsObj) {
-        let txnId = id;
-        let signed_txn_base64 = txnsObj[id];
-
-        // console.log(txnId, signed_txn_base64);
-
-        if (signed_txn_base64 == 'wait') {
-          return(console.log('wait'));
-        }
-
-        // Python setup
-        const myPythonScript = "transaction.py";
-
-        const pgExec = lcAuth.pythonExecutable();
-        const scriptExecution = spawn(pgExec, [myPythonScript]);
-
-        // 1. Passing serialized txn to Python LCS
-        scriptExecution.stdin.write(signed_txn_base64);
-        scriptExecution.stdin.end();
-
-        // 2. Output from Python: Deserialized txn
-        scriptExecution.stdout.on('data', (data) => {
-
-          // convert an Uint8Array to a string
-          let txnString = String.fromCharCode.apply(null, data);
-
-          // console.log(txnString);
-
-          txnString = JSON.parse(txnString.replace(/'/g,'"'))
-          txnString = txnString.UserTransaction;
-
-          // add to transactions array for later db update
-          txnsObjDes[txnId] = txnString;
-
-          if (i++ == txnsObjLength) {
-            // console.log(txnsObjDes);
-            console.log('FINISHED LCS LOOP');
-            updateDB(txnsObjDes);
-          }
-
-        });
-
+      if (string.length==6) {
+        console.log('LCS done, 2sec timeout...')
+        setTimeout(() => { run() }, 2000)
       }
-
-    }
-  
-  }
-
-
-  async function updateDB(txnsObjDes) {
-    console.log('STARTING updateDB');
-    // let txnsArray = txnsObjDes;
-    // console.log(txnsObjDes);
-    // return;
-
-    txnsObjDesLength = Object.keys(txnsObjDes).length;
-    txnsPrepForDB = {};
-
-    console.log('STARTING updateDB LOOP');
-
-
-    i = 1;
-    for (const id in txnsObjDes) {
-      console.log('Updating Txn:', id);
-
-      let txnId = id;
-      let tx = txnsObjDes[id];
-      let txnPrep = {}
-
-      txnPrep.last = false;
-      if (txnsObjDesLength == i++) {
-        console.log('LAST TXN');
-        txnPrep.last = true;
-      }
-
-      // set default status
-      txnPrep.status = 'success';
-      
-      // SETTING VALUES
-      // Genesis (0th) transaction
-      if (txnId == 0) {
-        txnPrep.sender = tx.raw_txn.sender;
-        txnPrep.sequence_number = tx.raw_txn.sequence_number;
-        txnPrep.receiver = 0;
-        txnPrep.value = 0;
-        txnPrep.max_gas_amount = 0;
-        txnPrep.public_key = tx.public_key;
-        txnPrep.signature = tx.signature;
-        txnPrep.type = 'genesis'
-
-        console.log(txnPrep);
-
-        finishRunGetReady(txnId, txnPrep);
-
-      }
-      // Not Genesis txn
       else {
-        console.log( tx );
-        txnPrep.type = tx.type;
-        txnPrep.sender = tx.raw_txn.sender;
-        txnPrep.sequence_number = tx.raw_txn.sequence_number;
-        if (txnPrep.type == 'Rotate Authentication Key') {
-          txnPrep.receiver = tx.raw_txn.payload.Script.args[0].ByteArray;
-          txnPrep.value = 0;
-        }
-        else {
-          txnPrep.receiver = tx.raw_txn.payload.Script.args[0].Address;
-          txnPrep.value = tx.raw_txn.payload.Script.args[1].U64;
-        }
-        txnPrep.max_gas_amount = tx.raw_txn.max_gas_amount;
-        txnPrep.gas_unit_price = tx.raw_txn.gas_unit_price;
-        txnPrep.expiration_time = tx.raw_txn.expiration_time;
-        txnPrep.public_key = tx.public_key;
-        txnPrep.signature = tx.signature;
-
-        console.log(txnPrep);
-        // return;
-
-        // Specific txn types
-
-        // Txn type: Mint
-        if (txnPrep.type == 'Mint Libra Coins') {
-          if (txnPrep.value > 1000000000000000) {
-            txnPrep.status = 'failed';
-            finishRunGetReady(txnId, txnPrep);
-          }
-          else {
-
-            // 1. update minter's balance
-            try {
-              let text = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
-              let valueMinter = txnPrep.value * -1;
-              let values = [txnPrep.sender, valueMinter];
-              const res = await clientPg.query(text, values);
-
-              console.log(res.rows[0])
-            } catch (err) {
-              console.log(err.stack)
-            }
-            
-            // 2. update receiver's balance
-            try {
-              let text2 = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
-              let values2 = [txnPrep.receiver, txnPrep.value];
-              const res = await clientPg.query(text2, values2);
-
-              console.log(res.rows[0])
-            } catch (err) {
-              console.log(err.stack)
-            }
-
-            finishRunGetReady(txnId, txnPrep);
-
-          }
-        }
-
-        // Txn type: Peer-to-Peer transaction
-        else {
-
-          let queryBalanceSender = {
-            name: 'get-balance-sender',
-            text: 'SELECT * FROM balances WHERE address = $1',
-            values: [txnPrep.sender],
-          }
-
-          try {
-            const res = await clientPg.query(queryBalanceSender);
-
-          //   console.log(res.rows[0])
-          // } catch (err) {
-          //   console.log(err.stack)
-          // }
-
-          // clientPg.query(queryBalanceSender)
-          // .then(res => {
-            let currentBalanceSender = res.rows[0].balance;
-
-            if (txnPrep.value > currentBalanceSender) {
-              txnPrep.status = 'failed';
-              finishRunGetReady(txnId, txnPrep);
-            }
-            else {
-              let newBalanceSender = currentBalanceSender - txnPrep.value;
-              // console.log(newBalanceSender);
-
-              // 1. update sender's balance
-              let updateBalanceSender = {
-                name: 'update-balance-sender',
-                text: 'UPDATE balances SET balance = $1 WHERE address = $2',
-                values: [newBalanceSender, txnPrep.sender],
-              }
-
-              try {
-                const res = await clientPg.query(updateBalanceSender)
-                // console.log(res.rows[0]);
-                console.log('sender balance updated')
-              } catch (err) {
-                console.log(err.stack)
-              }
-
-
-              // 2. insert/update receiver's balance
-              let text2 = 'INSERT INTO balances AS t (address, balance) VALUES($1, $2) ON CONFLICT (address) DO UPDATE SET balance = (t.balance + EXCLUDED.balance)';
-              let values2 = [txnPrep.receiver, txnPrep.value];
-
-              try {
-                const res = await clientPg.query(text2, values2)
-
-                console.log(res.rows[0])
-                finishRunGetReady(txnId, txnPrep);
-              } catch (err) {
-                console.log(err.stack)
-              }
-
-            }
-          // })
-          }
-          // .catch(e => console.error(e.stack))
-          catch (err) {
-            console.log('EEEEEEEEEEEE', err);
-          }
-
-        }
-
+        console.log("Error:", string)
       }
 
-      async function finishRunGetReady(txnId, txnPrep) {
-
-        try {
-          finishRun(txnId, txnPrep);
-        }
-        catch(error) {
-          console.log(error.message);
-        } 
-       
-        // finishRun(txnId, txnPrep);
-      }
-
-    }
+    });
 
   }
-
-
-  // ADD TO POSTGRESQL
-  async function finishRun(txnId, tx) {
-
-    console.log(txnId, tx);
-    // return;
-
-    const text = 'INSERT INTO transactions(id, sender, seq, value, receiver, gas_max, gas_price, time, signature, public_key, type, status) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *'
-
-    let values = [txnId, tx.sender, tx.sequence_number, tx.value, tx.receiver, tx.max_gas_amount, tx.gas_unit_price, tx.expiration_time, tx.signature, tx.public_key, tx.type, tx.status]
-
-    try {
-      const res = await clientPg.query(text, values);
-
-      console.log('txn '+txnId+' inserted');
-      // console.log(txnId);
-
-      if (tx.last) {
-        console.log('0.5 sec pause before trying again');
-        setTimeout(function () {
-          run();
-        }, 500);
-      }
-    }
-    catch (err) {
-
-      console.log(err.stack)
-
-      values = [txnId, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-      
-      try {
-        const res = await clientPg.query(text, values);
-
-        console.log('txn '+txnId+' inserted');
-
-        if (tx.last) {
-          setTimeout(function () {
-            console.log('2 sec pause before trying again');
-            run();
-          }, 2000);
-        }
-      }
-      catch (err) {
-        console.log('2nd error:', err);
-      }
-    }
-
-
-  }
-
 
 }
 

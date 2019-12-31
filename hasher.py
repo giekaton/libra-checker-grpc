@@ -1,7 +1,7 @@
 from libra.key_factory import new_sha3_256
 import canoser
 
-LIBRA_HASH_SUFFIX = b"@@$$LIBRA$$@@";
+LIBRA_HASH_SUFFIX = b"@@$$LIBRA$$@@"
 
 class HashValue(canoser.DelegateT):
     LENGTH = 32
