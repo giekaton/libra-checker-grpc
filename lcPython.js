@@ -63,13 +63,16 @@ function run() {
     scriptExecution.stdin.write(nextTxnId+"");
     scriptExecution.stdin.end();
 
+    let isDone = false;
+
     // 2. Output from Python
     scriptExecution.stdout.on('data', (data) => {
       // console.log(data);
       // convert an Uint8Array to a string
-      const string = String.fromCharCode.apply(null, data);
+      const string = String.fromCharCode.apply(null, data).trim();
 
-      if (string.length==6) {
+      if (string=='done') {
+        isDone = true
         console.log('LCS done, 2sec timeout...')
         setTimeout(() => { run() }, 2000)
       }
@@ -78,6 +81,16 @@ function run() {
       }
 
     });
+    
+    function autoRestart() {
+      setTimeout(function() {
+        if(!isDone) {
+          console.log('No resp from grpc, restarting')
+          run()
+        }
+      }, 600000)
+    }
+    autoRestart();
 
   }
 

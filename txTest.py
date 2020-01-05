@@ -19,10 +19,10 @@ def hex_to_int_list(hex_str):
     return bytes_to_int_list(bytes.fromhex(hex_str))
 
 
-import sys
+# import sys
 
-for line in sys.stdin:
-  nextTxnId = int(line)
+# for line in sys.stdin:
+#   nextTxnId = int(line)
 
 
 c = libra.Client("testnet")
@@ -42,8 +42,10 @@ c = libra.Client("testnet")
 # nextTxnId = 8209738
 # nextTxnId = 8230240
 # nextTxnId = 9295591
+nextTxnId = 9300059
 
-txns = c.get_transactions(nextTxnId, 500)
+
+txns = c.get_transactions(nextTxnId, 5)
 
 
 txnsArray = []
@@ -63,22 +65,22 @@ for tx in txns:
     
     def get_tx_abbreviation_name(payload, version):
       if version == 0:
-          return "Genesis"
+        return "Genesis"
       try:
-          payload['Script'] = payload.pop('Program')
+        payload['Script'] = payload.pop('Program')
       except KeyError:
-          pass
+        pass
       if list(payload)[0] != "Script":
-          return list(payload)[0]
+        return list(payload)[0]
       code = hex_to_int_list(payload['Script']['code'])
       if code == bytecodes["mint"]:
-          return "Mint Libra Coins"
+        return "Mint Libra Coins"
       if code == bytecodes["peer_to_peer_transfer"]:
-          return "Transfer Libra Coins"
+        return "Transfer Libra Coins"
       if code == bytecodes["create_account"]:
-          return "Create Account"
+        return "Create Account"
       if code == bytecodes["rotate_authentication_key"]:
-          return "Rotate Authentication Key"
+        return "Rotate Authentication Key"
       return "script"
 
     type = get_tx_abbreviation_name(payload, txnId)
@@ -334,3 +336,5 @@ for txn in txnsArray:
     print('unknown txn type:', txn['txnId'], txn['type'])
 
 print('done')
+
+#run again
